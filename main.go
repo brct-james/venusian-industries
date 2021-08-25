@@ -3,8 +3,10 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"net/http"
+	"reflect"
 
 	"github.com/gorilla/mux"
 )
@@ -22,8 +24,8 @@ func main() {
 		},
 	}
 	Drones = []drone{
-		drone{Id: "1", Name: "HMS Iceslinger", Model: "Mining", CurrentFuel: 100},
-		drone{Id: "2", Name: "Grinds-a-lot", Model: "Crushing", CurrentFuel: 100},
+		{Id: "1", Name: "HMS Iceslinger", Model: "Mining", CurrentFuel: 100},
+		{Id: "2", Name: "Grinds-a-lot", Model: "Crushing", CurrentFuel: 100},
 	}
 	handleRequests()
 }
@@ -32,9 +34,12 @@ func handleRequests() {
 	muxRouter := mux.NewRouter().StrictSlash(true)
 	muxRouter.HandleFunc("/", homepage)
 	// use /hypixel/* prefix for testing
-	muxRouter.HandleFunc("/venus", returnVenusStatus)
-	muxRouter.HandleFunc("/drones", returnAllDrones)
-	muxRouter.HandleFunc("/drones/{id}", returnSingleDrone)
+	muxRouter.HandleFunc("/hypixel/venus", returnVenusStatus)
+	muxRouter.HandleFunc("/hypixel/drones", returnAllDrones).Methods("GET")
+	muxRouter.HandleFunc("/hypixel/drones", createNewDrone).Methods("POST")
+	muxRouter.HandleFunc("/hypixel/drones/{id}", returnSingleDrone).Methods("GET")
+	muxRouter.HandleFunc("/hypixel/drones/{id}", deleteDrone).Methods("DELETE")
+	muxRouter.HandleFunc("/hypixel/drones/{id}", updateDrone).Methods("PUT")
 	log.Fatal(http.ListenAndServe(":50236", muxRouter))
 }
 
@@ -94,9 +99,72 @@ type venus struct {
 }
 
 type venusianAtmosphere struct {
-	Pressure float64 `json: "Pressure"`
+	Pressure float64 `json:"Pressure"`
 }
 
 type venusianSurface struct {
-	Temperature float64 `json: "Temperature"`
+	Temperature float64 `json:"Temperature"`
+}
+
+func createNewDrone(w http.ResponseWriter, r *http.Request) {
+	fmt.Println("Endpoint Hit: createNewDrone")
+	// get the body of the POST request
+	// return the string response containing the request body
+	reqBody, _ := ioutil.ReadAll(r.Body)
+	var newDrone drone
+	json.Unmarshal(reqBody, &newDrone)
+	index := getStructByFieldValue(Drones, "Id", newDrone.Id)
+	if (index != -1) {
+		fmt.Fprintf(w, "{\"error\": \"Could not execute CREATE as drone with id %s already exists\"}", newDrone.Id)
+	} else {
+		Drones = append(Drones, newDrone)
+		fmt.Fprint(w, prettyJSON(Drones))
+	}
+}
+
+func deleteDrone(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	id := vars["id"]
+	fmt.Println("Endpoint Hit: deleteDrone, id: " + id)
+
+	index := getStructByFieldValue(Drones, "Id", id)
+	if (index == -1) {
+		fmt.Fprintf(w, "{\"error\": \"Could not execute DELETE as drone with id %s does not exist\"}", id)
+	} else {
+		Drones = append(Drones[:index], Drones[index+1:]...)
+		fmt.Fprint(w, prettyJSON(Drones))
+	}
+}
+
+func updateDrone(w http.ResponseWriter, r *http.Request) {
+	reqBody, _ := ioutil.ReadAll(r.Body)
+	var newDrone drone
+	json.Unmarshal(reqBody, &newDrone)
+	
+	vars := mux.Vars(r)
+	id := vars["id"]
+	fmt.Println("Endpoint Hit: updateDrone, id: " + id)
+
+	index := getStructByFieldValue(Drones, "Id", id)
+	if (index == -1) {
+		fmt.Fprintf(w, "{\"error\": \"Could not execute UPDATE as drone with id %s does not exist\"}", id)
+	} else {
+		Drones[index] = newDrone
+		fmt.Fprint(w, prettyJSON(Drones))
+	}
+}
+
+func getStructByFieldValue(slice interface{} ,fieldName string,fieldValueToCheck interface {}) int {
+	// Check for value of a given field in a slice of structs
+	rangeOnMe := reflect.ValueOf(slice)
+	for i := 0; i < rangeOnMe.Len(); i++ {
+		s := rangeOnMe.Index(i)
+		f := s.FieldByName(fieldName)
+		if f.IsValid(){
+			if f.Interface() == fieldValueToCheck {
+				return i
+			}
+		}
+	}
+	return -1
 }
