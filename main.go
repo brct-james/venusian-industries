@@ -33,13 +33,12 @@ func main() {
 func handleRequests() {
 	muxRouter := mux.NewRouter().StrictSlash(true)
 	muxRouter.HandleFunc("/", homepage)
-	// use /hypixel/* prefix for testing
-	muxRouter.HandleFunc("/hypixel/venus", returnVenusStatus)
-	muxRouter.HandleFunc("/hypixel/drones", returnAllDrones).Methods("GET")
-	muxRouter.HandleFunc("/hypixel/drones", createNewDrone).Methods("POST")
-	muxRouter.HandleFunc("/hypixel/drones/{id}", returnSingleDrone).Methods("GET")
-	muxRouter.HandleFunc("/hypixel/drones/{id}", deleteDrone).Methods("DELETE")
-	muxRouter.HandleFunc("/hypixel/drones/{id}", updateDrone).Methods("PUT")
+	muxRouter.HandleFunc("/venus", returnVenusStatus)
+	muxRouter.HandleFunc("/drones", returnAllDrones).Methods("GET")
+	muxRouter.HandleFunc("/drones", createNewDrone).Methods("POST")
+	muxRouter.HandleFunc("/drones/{id}", returnSingleDrone).Methods("GET")
+	muxRouter.HandleFunc("/drones/{id}", deleteDrone).Methods("DELETE")
+	muxRouter.HandleFunc("/drones/{id}", updateDrone).Methods("PUT")
 	log.Fatal(http.ListenAndServe(":50236", muxRouter))
 }
 
